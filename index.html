@@ -1,0 +1,434 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>अपना साथी - Voice Assistant</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f6f0;
+  color: #183b30;
+  font-size: 18px;
+}
+
+main {
+  max-width: 520px;
+  margin: auto;
+  padding: 18px;
+}
+
+header { text-align: center; padding: 10px; }
+h1 { font-size: 30px; }
+h2 { font-size: 22px; }
+
+.card {
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  margin: 16px 0;
+  box-shadow: 0 3px 12px #0000000c;
+}
+
+.hero {
+  background: #dff1e5;
+  text-align: center;
+}
+
+button, input, select {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px;
+  font-size: 17px;
+  border-radius: 12px;
+  margin: 7px 0;
+}
+
+button {
+  border: none;
+  background: #176b52;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #e4efff;
+  color: #204b7c;
+}
+
+button:disabled { opacity: .6; }
+
+input, select {
+  border: 1px solid #bdcfc3;
+  background: white;
+  color: #183b30;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.status {
+  background: #f0f4ef;
+  padding: 14px;
+  border-radius: 12px;
+  margin-top: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+footer {
+  text-align: center;
+  padding: 15px;
+  color: #65756b;
+}
+</style>
+</head>
+
+<body>
+<main>
+
+<header>
+  <h1>💚 अपना साथी</h1>
+  <p>आपका अपना मददगार</p>
+</header>
+
+<section class="card hero">
+  <div style="font-size:52px">🙏</div>
+  <h2 id="greeting">नमस्ते! मैं आपकी मदद करूँ?</h2>
+  <p id="intro">बोलने के लिए नीचे बटन दबाएँ।</p>
+  <button id="voiceBtn" onclick="listen()">🎙️ मुझसे बात करें</button>
+  <button class="secondary" onclick="speak(greetingText())">
+    🔊 मेरी बात सुनें
+  </button>
+</section>
+
+<section class="card">
+  <h2>🌐 भाषा / Language</h2>
+  <select id="language" onchange="changeLanguage()">
+    <option value="hi-IN">हिंदी</option>
+    <option value="en-IN">English</option>
+  </select>
+</section>
+
+<section class="card">
+  <h2>💊 Paracetamol Reminder</h2>
+  <p id="medicineInfo">
+    दवाई: Paracetamol<br>
+    रिमाइंडर: रोज़ रात 8:00 बजे
+  </p>
+  <button onclick="setReminder()">⏰ 8 बजे की याद दिलाएँ</button>
+  <div class="status" id="reminderStatus" aria-live="polite">
+    रिमाइंडर चालू करने के लिए बटन दबाएँ।
+  </div>
+  <button class="secondary" onclick="confirmTaken()">
+    ✅ मैंने दवाई ले ली
+  </button>
+</section>
+
+<section class="card">
+  <h2>📞 परिवार को फोन करें</h2>
+  <label for="familyName">किसको फोन करना है?</label>
+  <input id="familyName" placeholder="नाम लिखें, जैसे Rahul">
+  <button onclick="callFamily()">📞 अभी फोन करें</button>
+  <div class="status" id="callStatus" aria-live="polite">
+    व्यक्ति का नाम लिखें।
+  </div>
+</section>
+
+<section class="card">
+  <h2>❓ कुछ भी पूछिए</h2>
+  <p id="askHelp">अपना सवाल बोलें या लिखें।</p>
+  <input id="question" placeholder="अपना सवाल लिखें"
+         onkeydown="if(event.key==='Enter') askQuestion()">
+  <button id="askBtn" onclick="askQuestion()">जवाब सुनें</button>
+  <div class="status" id="answer" aria-live="polite">
+    नमस्ते! मैं आपकी मदद के लिए यहाँ हूँ।
+  </div>
+</section>
+
+<footer>आपका साथी, आपकी मदद के लिए ❤️</footer>
+
+</main>
+
+<script>
+let language = "hi-IN";
+let reminderTimer = null;
+let lastAlert = "";
+
+const CONTACTS = {
+  // अपने परिवार के सही नंबर यहाँ भरें।
+  "rahul": "+919876543210",
+  "राहुल": "+919876543210",
+  "मम्मी": "+919876543211",
+  "mummy": "+919876543211"
+};
+
+const translations = {
+  "hi-IN": {
+    greeting: "नमस्ते! मैं आपकी मदद करूँ?",
+    intro: "बोलने के लिए नीचे बटन दबाएँ।",
+    voice: "🎙️ मुझसे बात करें",
+    medicine: "दवाई: Paracetamol। रिमाइंडर: रोज़ रात 8 बजे।",
+    reminderButton: "⏰ 8 बजे की याद दिलाएँ",
+    taken: "✅ मैंने दवाई ले ली",
+    family: "📞 परिवार को फोन करें",
+    name: "किसको फोन करना है?",
+    call: "📞 अभी फोन करें",
+    ask: "अपना सवाल बोलें या लिखें।",
+    askButton: "जवाब सुनें",
+    placeholder: "अपना सवाल लिखें"
+  },
+  "en-IN": {
+    greeting: "Hello! How can I help you?",
+    intro: "Press the button below to speak.",
+    voice: "🎙️ Talk to me",
+    medicine: "Medicine: Paracetamol. Reminder: Every day at 8 PM.",
+    reminderButton: "⏰ Set 8 PM Reminder",
+    taken: "✅ I took my medicine",
+    family: "📞 Call Family",
+    name: "Who would you like to call?",
+    call: "📞 Call Now",
+    ask: "Speak or type your question.",
+    askButton: "Hear Answer",
+    placeholder: "Type your question"
+  }
+};
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = language;
+  utterance.rate = 0.88;
+  speechSynthesis.speak(utterance);
+}
+
+function greetingText() {
+  return language === "hi-IN"
+    ? "नमस्ते! मैं आपका साथी हूँ। आप सवाल पूछ सकते हैं, दवाई का रिमाइंडर देख सकते हैं या परिवार को फोन कर सकते हैं।"
+    : "Hello! I can help answer common questions, remind you about medicine, and call saved family contacts.";
+}
+
+function changeLanguage() {
+  language = document.getElementById("language").value;
+  document.documentElement.lang = language;
+
+  const t = translations[language];
+
+  document.getElementById("greeting").textContent = t.greeting;
+  document.getElementById("intro").textContent = t.intro;
+  document.getElementById("voiceBtn").textContent = t.voice;
+  document.getElementById("medicineInfo").textContent = t.medicine;
+  document.getElementById("familyTitle").textContent = t.family;
+  document.getElementById("nameLabel").textContent = t.name;
+  document.getElementById("callBtn").textContent = t.call;
+  document.getElementById("askHelp").textContent = t.ask;
+  document.getElementById("askBtn").textContent = t.askButton;
+  document.getElementById("question").placeholder = t.placeholder;
+
+  speak(greetingText());
+}
+
+function listen() {
+  const Recognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!Recognition) {
+    showAnswer(language === "hi-IN"
+      ? "आपके ब्राउज़र में आवाज़ पहचानने की सुविधा नहीं है। कृपया सवाल लिखें।"
+      : "Voice recognition is unavailable in this browser. Please type your question.");
+    return;
+  }
+
+  const recognition = new Recognition();
+  recognition.lang = language;
+  recognition.interimResults = false;
+
+  document.getElementById("voiceBtn").textContent =
+    language === "hi-IN" ? "🎙️ सुन रहा हूँ..." : "🎙️ Listening...";
+
+  recognition.onresult = event => {
+    const question = event.results[0][0].transcript;
+    document.getElementById("question").value = question;
+    askQuestion();
+  };
+
+  recognition.onerror = () => {
+    showAnswer(language === "hi-IN"
+      ? "मैं सुन नहीं पाया। कृपया दोबारा कोशिश करें।"
+      : "I could not hear you. Please try again.");
+  };
+
+  recognition.onend = () => {
+    document.getElementById("voiceBtn").textContent =
+      translations[language].voice;
+  };
+
+  try {
+    recognition.start();
+  } catch (error) {
+    showAnswer(language === "hi-IN"
+      ? "कृपया थोड़ी देर बाद फिर कोशिश करें।"
+      : "Please try again in a moment.");
+  }
+}
+
+// Fixed reminder: 8 PM every day.
+function setReminder() {
+  lastAlert = "";
+
+  document.getElementById("reminderStatus").textContent =
+    language === "hi-IN"
+      ? "रात 8 बजे का रिमाइंडर सेट है। पेज खुला रहना चाहिए।"
+      : "The 8 PM reminder is set. Keep this page open.";
+
+  if (reminderTimer) clearInterval(reminderTimer);
+
+  checkReminder();
+  reminderTimer = setInterval(checkReminder, 10000);
+
+  speak(language === "hi-IN"
+    ? "रात 8 बजे का रिमाइंडर सेट हो गया है।"
+    : "The 8 PM reminder is set.");
+}
+
+function checkReminder() {
+  const now = new Date();
+  const today = now.toDateString();
+  const currentTime =
+    String(now.getHours()).padStart(2, "0") + ":" +
+    String(now.getMinutes()).padStart(2, "0");
+
+  if (currentTime === "20:00" && lastAlert !== today) {
+    lastAlert = today;
+
+    const message = language === "hi-IN"
+      ? "रात के 8 बज गए हैं। Paracetamol केवल डॉक्टर या दवा के लेबल के निर्देश के अनुसार लें।"
+      : "It is 8 PM. Take Paracetamol only according to your clinician's advice or the medicine label.";
+
+    document.getElementById("reminderStatus").textContent = message;
+    speak(message);
+  }
+}
+
+function confirmTaken() {
+  const message = language === "hi-IN"
+    ? "आपने दवाई लेने की पुष्टि की है। अपना ध्यान रखें।"
+    : "You confirmed taking your medicine. Take care.";
+
+  document.getElementById("reminderStatus").textContent = message;
+  speak(message);
+}
+
+function callFamily() {
+  const name = document.getElementById("familyName")
+    .value.trim();
+
+  if (!name) {
+    const message = language === "hi-IN"
+      ? "कृपया व्यक्ति का नाम लिखें।"
+      : "Please enter the person's name.";
+
+    document.getElementById("callStatus").textContent = message;
+    speak(message);
+    return;
+  }
+
+  const phone = CONTACTS[name.toLocaleLowerCase("en-IN")] ||
+                CONTACTS[name.toLowerCase()];
+
+  if (!phone) {
+    const message = language === "hi-IN"
+      ? name + " का नंबर सेव नहीं है। सही नंबर CONTACTS सूची में जोड़ें।"
+      : "No saved number for " + name + ". Add their number to the CONTACTS list.";
+
+    document.getElementById("callStatus").textContent = message;
+    speak(message);
+    return;
+  }
+
+  document.getElementById("callStatus").textContent =
+    language === "hi-IN"
+      ? name + " को फोन करने के लिए फोन ऐप खुल रहा है।"
+      : "Opening the phone app to call " + name + ".";
+
+  window.location.href = "tel:" + phone.replace(/[^\d+]/g, "");
+}
+
+function showAnswer(text) {
+  document.getElementById("answer").textContent = text;
+  speak(text);
+}
+
+// Local question-answer helper.
+// This is not a full AI model and cannot answer every question.
+function askQuestion() {
+  const original = document.getElementById("question").value.trim();
+  const q = original.toLowerCase();
+
+  if (!q) {
+    showAnswer(language === "hi-IN"
+      ? "कृपया अपना सवाल बोलें या लिखें।"
+      : "Please speak or type your question.");
+    return;
+  }
+
+  const hi = language === "hi-IN";
+  let response;
+
+  if (/नमस्ते|नमस्कार|hello|hi\b|हैलो/.test(q)) {
+    response = hi
+      ? "नमस्ते! बताइए, मैं आपकी क्या मदद करूँ?"
+      : "Hello! How can I help you today?";
+
+  } else if (/दवाई|दवा|गोली|paracetamol|medicine|tablet/.test(q)) {
+    response = hi
+      ? "आपका रिमाइंडर रात 8 बजे का है। Paracetamol की सही खुराक और समय डॉक्टर या दवा के लेबल के अनुसार रखें।"
+      : "Your reminder is set for 8 PM. Follow the medicine label or your clinician's instructions for the correct dose and timing.";
+
+  } else if (/फोन|कॉल|बेटा|बेटी|परिवार|call|phone|family|son|daughter/.test(q)) {
+    response = hi
+      ? "परिवार को फोन करने के लिए उनका नाम लिखें। उनका नंबर CONTACTS सूची में पहले से सेव होना चाहिए।"
+      : "Enter the person's name in the Call Family section. Their number must already be saved in CONTACTS.";
+
+  } else if (/समय|बजे|time|clock/.test(q)) {
+    const now = new Date().toLocaleTimeString(
+      language, { hour: "numeric", minute: "2-digit" }
+    );
+    response = hi ? "अभी समय " + now + " है।" : "The current time is " + now + ".";
+
+  } else if (/तुम कौन|आप कौन|नाम क्या|who are you|your name/.test(q)) {
+    response = hi
+      ? "मैं अपना साथी हूँ। मैं सामान्य सवालों, रिमाइंडर और परिवार को फोन करने में मदद करता हूँ।"
+      : "I am Apna Saathi. I help with common questions, reminders, and calling saved family contacts.";
+
+  } else if (/धन्यवाद|शुक्रिया|thank you|thanks/.test(q)) {
+    response = hi
+      ? "आपका स्वागत है! मैं आपकी मदद के लिए यहाँ हूँ।"
+      : "You're welcome! I'm here to help.";
+
+  } else {
+    response = hi
+      ? "माफ़ कीजिए, मुझे इस सवाल का सही जवाब नहीं पता। इस HTML संस्करण में सामान्य सवालों के जवाब हैं, लेकिन सभी सवालों के लिए AI सेवा की ज़रूरत होगी।"
+      : "Sorry, I don't know the answer to that question. This HTML version handles common questions; answering arbitrary questions requires an AI service.";
+  }
+
+  showAnswer(response);
+}
+
+// Start the reminder automatically when the page opens.
+window.addEventListener("load", setReminder);
+</script>
+
+</body>
+</html>
